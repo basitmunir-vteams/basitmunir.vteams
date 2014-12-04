@@ -1,140 +1,108 @@
 <?php
 
-class UsersController extends \BaseController {
+class AdminController extends \BaseController {
 
-	protected $user,$post; //object for users model
+	protected $user, $post, $admin;
+	/**
+     * The layout that should be used for responses.
+     */
+    protected $layout;
+	
+    public function __construct(){
+    	$this->user = new User;
+    	$this->post = new Post;
+    	$this->admin= New Admin;
+    }
 
 	/**
 	 * Display a listing of the resource.
 	 *
 	 * @return Response
 	 */
-	
-	public function __construct(){
-		$this->user = New User;
-		$this->post = New Post;
-	}
-
 	public function getIndex()
 	{
-		return Redirect::to('users/dashboard');
-	}
+		if(Auth::check() && Auth::user()->status == 3 ) {
 
-	/**
-	* show user Dashboard where user can view his posts posted so far.
-	*
-	*
-	*/
-	public function getDashboard(){
-		if(Auth::check()) {
+			$data = $this->admin->usersList();
 
-			$data = $this->post->where('user_id','=', Auth::user()->user_id)->paginate(10);
-		
-			return View::make('users/dashboard')->with(array('posts'=>$data, 'title'=>'Dashboard') ) ;
+			return View::make('admin.users')->with(array('users'=>$data, 'title'=>'Manage User') ) ;
 
 		} else {
 			return Redirect::to('users/login');
 		}
-	}
 
-	/*
-	* function to show login form to login in the system
-	*/
-	public function getLogin(){
-
-		if(!Auth::check()) {
-
-			return View::make('users.login', array('title'=>'Login'));
-
-		} else {
-
-			return Redirect::to('users/dashboard');
-
-		}
-	}
-
-	/*
-	*	function to verify Identity of user who attempt to login.
-	*/
-	public function postLogin() {
-
-		$email = Input::get('email');
-		$password = Input::get('password');
-
-		// $user = new User;
-		// $user->username = 'myusername';
-		// $user->email= Input::get('email');
-		// $user->password = Hash::make(Input::get('password'));
-		// $user->save();
-		// exit;
-		
-
-		if(Auth::attempt(array( 'email' => $email, 'password' => $password) ) ) {
-			
-			
-			if(Auth::user()->status != 3){
-				return Redirect::to('users/dashboard');
-			} else {
-				return Redirect::to('admin');
-			}
-
-		} else {
-			return Redirect::to('users/login')->withInput();
-		}
+		return "asdf";
 	}
 
 	/**
-	 * Show the form for creating a new resource.
+	 * Display a listing of the users.
 	 *
 	 * @return Response
 	 */
-	public function postSignup(){
-		
+	public function getUsers()
+	{
+		if(Auth::check() && Auth::user()->status == 3 ) {
 
-		if(!Auth::check()) {
-			$input = Input::all();
-			//$this->user->fill(Input::all())
-			
-			if(!$this->user->fill($input)->isValid()) {
-			
-				return Redirect::back()->withInput()->withErrors($this->user->errors);//'Validation failed';
-			
-			} else {
-				
-				$this->user->save();
-				Session::flash('message', 'User Successfully added!');
+			$data = $this->admin->usersList();
 
-				return Redirect::to('users/login')->with('message', 'Thanks for registering! Please Verify Your Email Address');
+			return View::make('admin.users')->with(array('users'=>$data, 'title'=>'Manage User') ) ;
 
-			}
 		} else {
-			return Redirect::route('users/dashboard');
+			return Redirect::to('users/login');
 		}
+
 	}
 
-	/*shows registration form*/
-
-	public function getSignup()
+	/**
+	 * Display a listing of the users.
+	 *
+	 * @return Response
+	 */
+	public function getPosts()
 	{
-		if(Auth::check()) {
-			
-			Redirect::to('users/dashboard');
+		if(Auth::check() && Auth::user()->status == 3 ) {
+
+			$data = $this->admin->postsLists();
+
+			return View::make('admin.posts')->with(array('posts'=>$data, 'title'=>'Manage Posts') ) ;
 
 		} else {
-			return View::make('users.signup',array('title'=>'signup'));
+			return Redirect::to('users/login');
+		}
+
+		
+	}
+
+	/*
+	* Function used to delete post
+	*/
+	public function getDeletepost($id) {
+		if(Auth::check() && Auth::user()->status == 3) {
+			$post = $this->post->find($id);
+			
+			if(file_exists(public_path().'/uploads/'.$post->photo_name)) {
+				unlink(public_path().'/uploads/'.$post->photo_name);
+			} 
+
+			$post = $this->post->find($id)->delete();
+
+			return Redirect::to('posts')->with('message', 'Post have been deleted');
+
+		} else {
+
+			return Redirect::to('users/login');
 
 		}	
-		
 	}
 
 	/*
 	* function used to display edit form where user can change his name address phone number tec
 	*/
 	public function getProfile(){
-		if(Auth::check()) {
+		if(Auth::check() && Auth::user()->status == 3) {
 			$user = $this->user->find(Auth::user()->user_id);
 
-			return View::make('users.profile', array('title'=>'Manage Profile', 'user'=>$user));
+			return View::make('admin.profile', array('title'=>'Manage Profile', 'user'=>$user));
 
 		} else {
 			return Redirect::to('users/login');
@@ -146,7 +114,7 @@ class UsersController extends \BaseController {
 	* update Profiles variables.
 	*/
 	public function postProfile(){
-		if(Auth::check()) {
+		if(Auth::check() && Auth::user()->status == 3) {
 			$input = Input::all();
 			//$this->user->fill(Input::all())
 			
@@ -159,7 +127,7 @@ class UsersController extends \BaseController {
 
 				Session::flash('message', 'Record Have been updated');
 
-				return Redirect::to('users/profile');
+				return Redirect::to('admin/profile');
 
 			}
 		} else {
@@ -171,8 +139,8 @@ class UsersController extends \BaseController {
 	*	Function used to reset password.
 	*/
 	public function getResetpassword(){
-		if(Auth::check()) {
-			return View::make('users.resetpassword', array('title'=>'Reset Password'));
+		if(Auth::check() && Auth::user()->status == 3) {
+			return View::make('admin.resetpassword', array('title'=>'Reset Password'));
 		} else {
 			return Redirect::to('users/login');
 		}
@@ -182,7 +150,7 @@ class UsersController extends \BaseController {
 	*	Function used to handle/ update password.
 	*/
 	public function postResetpassword(){
-		if(Auth::check()) {
+		if(Auth::check() && Auth::user()->status == 3) {
 			$input = Input::all();
 			//$this->user->fill(Input::all())
 			//check if submitted old password is correct
@@ -205,7 +173,7 @@ class UsersController extends \BaseController {
 					//setting up session message.
 					Session::flash('message', 'Password have been updated');
 					
-					return Redirect::to('users/dashboard');
+					return Redirect::to('admin/index');
 
 				} else {
 					
@@ -230,5 +198,17 @@ class UsersController extends \BaseController {
     	return Redirect::to('users/login')->with('message', 'Your are now logged out!');
 	}
 
+	/*
+	*	Function used to Remove User from system.
+	**/
+	public function getBlockuser($id) {
+		if(Auth::check() && Auth::user()->status == 3 ) {
+			$this->user->find($id)->delete();
+			return Redirect::to('admin/users');
+		} else {
+			return Redirect::to('users/login');
+		}
+
+	}
 
 }
